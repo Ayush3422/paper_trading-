@@ -1,0 +1,393 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum UserRole {
+  TRADER
+  ADMIN
+}
+
+enum Theme {
+  DARK
+  LIGHT
+  SYSTEM
+}
+
+enum AssetType {
+  STOCK
+  ETF
+  CRYPTO
+}
+
+enum PositionSide {
+  LONG
+  SHORT
+}
+
+enum OrderSide {
+  BUY
+  SELL
+}
+
+enum OrderType {
+  MARKET
+  LIMIT
+  STOP
+  STOP_LIMIT
+}
+
+enum OrderStatus {
+  PENDING
+  OPEN
+  PARTIALLY_FILLED
+  FILLED
+  CANCELLED
+  REJECTED
+  EXPIRED
+}
+
+enum TimeInForce {
+  DAY
+  GTC
+  IOC
+  FOK
+}
+
+enum AlertType {
+  PRICE_ABOVE
+  PRICE_BELOW
+  PERCENT_CHANGE
+}
+
+enum NotificationType {
+  ORDER_FILLED
+  ORDER_REJECTED
+  ALERT_TRIGGERED
+  ACHIEVEMENT_UNLOCKED
+  SYSTEM
+}
+
+model User {
+  id               String            @id @default(cuid())
+  email            String            @unique
+  username         String            @unique
+  passwordHash     String
+  displayName      String?
+  avatarUrl        String?
+  bio              String?
+  emailVerified    Boolean           @default(false)
+  isActive         Boolean           @default(true)
+  role             UserRole          @default(TRADER)
+  resetToken       String?
+  resetTokenExpiry DateTime?
+  refreshTokens    RefreshToken[]
+  preferences      UserPreferences?
+  portfolios       Portfolio[]
+  watchlists       Watchlist[]
+  priceAlerts      PriceAlert[]
+  achievements     UserAchievement[]
+  notifications    Notification[]
+  followers        UserFollow[]      @relation("following")
+  following        UserFollow[]      @relation("follower")
+  strategies       Strategy[]
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  lastLoginAt      DateTime?
+  @@index([email])
+  @@index([username])
+}
+
+model RefreshToken {
+  id        String    @id @default(cuid())
+  token     String    @unique
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+  @@index([token])
+  @@index([userId])
+}
+
+model UserPreferences {
+  id                   String    @id @default(cuid())
+  userId               String    @unique
+  user                 User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  theme                Theme     @default(DARK)
+  currency             String    @default("USD")
+  timezone             String    @default("America/New_York")
+  emailOnOrderFill     Boolean   @default(true)
+  emailOnAlert         Boolean   @default(true)
+  emailDailySummary    Boolean   @default(false)
+  defaultOrderType     OrderType @default(MARKET)
+  confirmOrder         Boolean   @default(true)
+  defaultChartInterval String    @default("1D")
+}
+
+model Portfolio {
+  id              String              @id @default(cuid())
+  userId          String
+  user            User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name            String              @default("My Portfolio")
+  cashBalance     Decimal             @db.Decimal(18,4)
+  startingCapital Decimal             @db.Decimal(18,4)
+  totalValue      Decimal             @db.Decimal(18,4) @default(0)
+  totalPnL        Decimal             @db.Decimal(18,4) @default(0)
+  realizedPnL     Decimal             @db.Decimal(18,4) @default(0)
+  unrealizedPnL   Decimal             @db.Decimal(18,4) @default(0)
+  isDefault       Boolean             @default(true)
+  resetCount      Int                 @default(0)
+  positions       Position[]
+  orders          Order[]
+  trades          Trade[]
+  snapshots       PortfolioSnapshot[]
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  @@index([userId])
+}
+
+model Position {
+  id               String       @id @default(cuid())
+  portfolioId      String
+  portfolio        Portfolio    @relation(fields: [portfolioId], references: [id], onDelete: Cascade)
+  symbol           String
+  companyName      String?
+  sector           String?
+  quantity         Decimal      @db.Decimal(18,8)
+  averageCost      Decimal      @db.Decimal(18,4)
+  totalCost        Decimal      @db.Decimal(18,4)
+  currentPrice     Decimal      @db.Decimal(18,4) @default(0)
+  marketValue      Decimal      @db.Decimal(18,4) @default(0)
+  unrealizedPnL    Decimal      @db.Decimal(18,4) @default(0)
+  unrealizedPnLPct Decimal      @db.Decimal(8,4)  @default(0)
+  side             PositionSide @default(LONG)
+  openedAt         DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+  @@unique([portfolioId, symbol])
+  @@index([portfolioId])
+  @@index([symbol])
+}
+
+model Order {
+  id              String      @id @default(cuid())
+  portfolioId     String
+  portfolio       Portfolio   @relation(fields: [portfolioId], references: [id])
+  userId          String
+  symbol          String
+  side            OrderSide
+  orderType       OrderType
+  quantity        Decimal     @db.Decimal(18,8)
+  filledQuantity  Decimal     @db.Decimal(18,8) @default(0)
+  limitPrice      Decimal?    @db.Decimal(18,4)
+  stopPrice       Decimal?    @db.Decimal(18,4)
+  executedPrice   Decimal?    @db.Decimal(18,4)
+  status          OrderStatus @default(PENDING)
+  timeInForce     TimeInForce @default(DAY)
+  commission      Decimal     @db.Decimal(18,4) @default(0)
+  rejectionReason String?
+  notes           String?
+  clientOrderId   String?     @unique
+  trades          Trade[]
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  executedAt      DateTime?
+  cancelledAt     DateTime?
+  @@index([portfolioId])
+  @@index([userId])
+  @@index([symbol])
+  @@index([status])
+}
+
+model Trade {
+  id             String    @id @default(cuid())
+  orderId        String
+  order          Order     @relation(fields: [orderId], references: [id])
+  portfolioId    String
+  portfolio      Portfolio @relation(fields: [portfolioId], references: [id])
+  userId         String
+  symbol         String
+  side           OrderSide
+  quantity       Decimal   @db.Decimal(18,8)
+  price          Decimal   @db.Decimal(18,4)
+  totalValue     Decimal   @db.Decimal(18,4)
+  commission     Decimal   @db.Decimal(18,4) @default(0)
+  costBasis      Decimal?  @db.Decimal(18,4)
+  realizedPnL    Decimal?  @db.Decimal(18,4)
+  realizedPnLPct Decimal?  @db.Decimal(8,4)
+  executedAt     DateTime  @default(now())
+  @@index([portfolioId])
+  @@index([userId])
+  @@index([symbol])
+  @@index([executedAt])
+}
+
+model PortfolioSnapshot {
+  id             String    @id @default(cuid())
+  portfolioId    String
+  portfolio      Portfolio @relation(fields: [portfolioId], references: [id])
+  snapshotDate   DateTime  @db.Date
+  cashBalance    Decimal   @db.Decimal(18,4)
+  positionsValue Decimal   @db.Decimal(18,4)
+  totalValue     Decimal   @db.Decimal(18,4)
+  dayReturn      Decimal   @db.Decimal(18,4)
+  dayReturnPct   Decimal   @db.Decimal(8,4)
+  totalReturn    Decimal   @db.Decimal(18,4)
+  totalReturnPct Decimal   @db.Decimal(8,4)
+  @@unique([portfolioId, snapshotDate])
+  @@index([portfolioId, snapshotDate])
+}
+
+model Watchlist {
+  id        String            @id @default(cuid())
+  userId    String
+  user      User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String
+  color     String?
+  isDefault Boolean           @default(false)
+  symbols   WatchlistSymbol[]
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+  @@index([userId])
+}
+
+model WatchlistSymbol {
+  id          String    @id @default(cuid())
+  watchlistId String
+  watchlist   Watchlist @relation(fields: [watchlistId], references: [id], onDelete: Cascade)
+  symbol      String
+  companyName String?
+  notes       String?
+  addedAt     DateTime  @default(now())
+  sortOrder   Int       @default(0)
+  @@unique([watchlistId, symbol])
+}
+
+model PriceAlert {
+  id             String    @id @default(cuid())
+  userId         String
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  symbol         String
+  alertType      AlertType
+  targetPrice    Decimal   @db.Decimal(18,4)
+  note           String?
+  notifyEmail    Boolean   @default(true)
+  isActive       Boolean   @default(true)
+  isRepeating    Boolean   @default(false)
+  triggeredAt    DateTime?
+  triggeredPrice Decimal?  @db.Decimal(18,4)
+  createdAt      DateTime  @default(now())
+  @@index([userId])
+  @@index([symbol, isActive])
+}
+
+model Symbol {
+  id          String   @id @default(cuid())
+  ticker      String   @unique
+  companyName String
+  exchange    String
+  sector      String?
+  industry    String?
+  country     String   @default("US")
+  currency    String   @default("USD")
+  isActive    Boolean  @default(true)
+  logoUrl     String?
+  website     String?
+  marketCap   BigInt?
+  lastUpdated DateTime @updatedAt
+  createdAt   DateTime @default(now())
+  @@index([ticker])
+  @@index([sector])
+}
+
+model Achievement {
+  id               String            @id @default(cuid())
+  code             String            @unique
+  name             String            @unique
+  description      String
+  iconEmoji        String            @default("🏆")
+  points           Int               @default(10)
+  isActive         Boolean           @default(true)
+  userAchievements UserAchievement[]
+}
+
+model UserAchievement {
+  id            String      @id @default(cuid())
+  userId        String
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  achievementId String
+  achievement   Achievement @relation(fields: [achievementId], references: [id])
+  unlockedAt    DateTime    @default(now())
+  @@unique([userId, achievementId])
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      NotificationType
+  title     String
+  body      String
+  data      Json?
+  isRead    Boolean          @default(false)
+  readAt    DateTime?
+  createdAt DateTime         @default(now())
+  @@index([userId, isRead])
+}
+
+model UserFollow {
+  id          String   @id @default(cuid())
+  followerId  String
+  follower    User     @relation("follower", fields: [followerId], references: [id], onDelete: Cascade)
+  followingId String
+  following   User     @relation("following", fields: [followingId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  @@unique([followerId, followingId])
+}
+
+model Strategy {
+  id                String    @id @default(cuid())
+  userId            String
+  name              String
+  description       String    @default("")
+  config            Json
+  status            String    @default("INACTIVE") // ACTIVE | INACTIVE | PAUSED
+  backtestRun       Boolean   @default(false)
+  backtestResults   Json?
+  lastBacktestAt    DateTime?
+  totalTrades       Int       @default(0)
+  totalPnL          Float     @default(0)
+  lastRunAt         DateTime?
+  runCount          Int       @default(0)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  user        User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  signalLogs  StrategySignalLog[]
+
+  @@index([userId])
+}
+
+model StrategySignalLog {
+  id           String   @id @default(cuid())
+  strategyId   String
+  strategy     Strategy @relation(fields: [strategyId], references: [id], onDelete: Cascade)
+  strategyName String
+  symbol       String
+  signal       String   // BUY | SELL | HOLD | ERROR
+  price        Float
+  reason       String
+  conditions   Json
+  orderPlaced  Boolean  @default(false)
+  orderId      String?
+  timestamp    DateTime @default(now())
+
+  @@index([strategyId])
+  @@index([symbol])
+  @@index([timestamp])
+}
