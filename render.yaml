@@ -1,0 +1,28 @@
+services:
+  - type: web
+    name: paper-trading-api
+    env: node
+    rootDir: apps/api
+    buildCommand: npm install && npx prisma generate && npm run build
+    startCommand: npm run start
+    envVars:
+      - key: PORT
+        value: '4000'
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: JWT_REFRESH_SECRET
+        sync: false
+      - key: POLYGON_API_KEY
+        sync: false
+      - key: ALPHA_VANTAGE_KEY
+        sync: false
+      - key: FINNHUB_API_KEY
+        sync: false
+      - key: STARTING_CAPITAL
+        value: '100000'
