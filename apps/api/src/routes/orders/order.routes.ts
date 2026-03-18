@@ -29,7 +29,7 @@ export async function orderRoutes(app: FastifyInstance) {
     if (!portfolio) return reply.status(404).send({ error: 'Portfolio not found' });
 
     try {
-      const order = await orderService.placeOrder(user.id, portfolio.id, body);
+      const order = await orderService.placeOrder(user.id, portfolio.id, body as any);
       return reply.status(201).send({ data: order });
     } catch (err: any) {
       return reply.status(400).send({ error: 'Order Failed', message: err.message });
