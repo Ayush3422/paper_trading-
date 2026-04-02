@@ -117,8 +117,8 @@ const BlurText = ({
           <motion.span
             key={index}
             className="inline-block will-change-[transform,filter,opacity]"
-            initial={fromSnapshot}
-            animate={inView ? animateKeyframes : fromSnapshot}
+            initial={fromSnapshot as any}
+            animate={inView ? (animateKeyframes as any) : (fromSnapshot as any)}
             transition={spanTransition}
             onAnimationComplete={
               index === elements.length - 1 ? onAnimationComplete : undefined

@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { Providers } from './providers';
 import { Toaster } from '@/components/ui/Toaster';
@@ -7,8 +7,13 @@ export const metadata: Metadata = {
   title:       'PaperTrade — Neural Grid Trading',
   description: 'Master the markets with zero risk. Algo-powered paper trading with real-time data.',
   keywords:    ['paper trading', 'algo trading', 'stock market', 'investment simulator'],
-  themeColor:  '#04050d',
-  viewport:    'width=device-width, initial-scale=1, maximum-scale=1',
+};
+
+export const viewport: Viewport = {
+  themeColor: '#04050d',
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
