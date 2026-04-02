@@ -3,7 +3,16 @@ import { z } from 'zod';
 import { PrismaClient } from '@prisma/client';
 import { authenticate } from '../../plugins/auth.plugin';
 import { orderService } from '../../services/order.service';
-import type { PlaceOrderInput } from '@paper-trading/types';
+// Inline type to avoid workspace resolution issues on Render
+interface PlaceOrderInput {
+  symbol: string;
+  side: 'BUY' | 'SELL';
+  orderType: 'MARKET' | 'LIMIT' | 'STOP' | 'STOP_LIMIT';
+  quantity: number;
+  limitPrice?: number;
+  stopPrice?: number;
+  timeInForce?: 'DAY' | 'GTC' | 'IOC';
+}
 
 const prisma = new PrismaClient();
 
